@@ -10,7 +10,7 @@
 
 (************************************************************************)
 (* Coq serialization API/Plugin                                         *)
-(* Copyright 2016-2018 MINES ParisTech                                  *)
+(* Copyright 2016-2019 MINES ParisTech                                  *)
 (* Written by: Emilio J. Gallego Arias                                  *)
 (************************************************************************)
 (* Status: Very Experimental                                            *)
@@ -23,7 +23,7 @@ let fatal_exn exn info =
   Format.eprintf "Error: @[%a@]@\n%!" Pp.pp_with msg;
   exit 1
 
-let create_document ~in_file ~async ~async_workers ~quick ~iload_path ~debug =
+let create_document ~mode ~in_file ~async ~async_workers ~quick ~iload_path ~debug =
 
   let open Sertop_init in
 
@@ -67,6 +67,8 @@ let create_document ~in_file ~async ~async_workers ~quick ~iload_path ~debug =
      https://github.com/ejgallego/coq-serapi/pull/101 *)
   if quick || async <> None
   then Safe_typing.allow_delayed_constants := true;
+
+  if mode = Sertop_arg.C_ktrace then Sercomp_ktrace.init ();
 
   Stm.new_doc ndoc
 
@@ -117,6 +119,7 @@ let process_vernac ~mode ~pp ~doc ~sid ast =
     | C_vo    -> ()
     | C_check -> ()
     | C_parse -> ()
+    | C_ktrace -> ()
     | C_stats ->
       Sercomp_stats.do_stats ast
     | C_print ->
@@ -144,6 +147,10 @@ let close_document ~pp ~mode ~doc ~in_file ~pstate =
   | C_parse -> ()
   | C_sexp  -> ()
   | C_print -> ()
+  | C_ktrace ->
+    let _doc = Stm.join ~doc in
+    check_pending_proofs ~pstate;
+    Sercomp_ktrace.dump pp
   | C_stats ->
     Sercomp_stats.print_stats ()
   | C_check ->
@@ -193,7 +200,7 @@ let driver input mode debug printer async async_workers quick coq_path ml_path l
   Serlib.Serlib_init.init ~options;
 
   let iload_path = Serapi_paths.coq_loadpath_default ~implicit:true ~coq_path @ ml_path @ load_path @ rload_path in
-  let doc, sid = create_document ~in_file ~async ~async_workers ~quick ~iload_path ~debug in
+  let doc, sid = create_document ~mode ~in_file ~async ~async_workers ~quick ~iload_path ~debug in
 
   (* main loop *)
   let in_chan = open_in in_file in

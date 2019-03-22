@@ -3,6 +3,8 @@
  * [general] (!) support Coq 8.11, a few datatypes has changed, in
              particular CoqAst handles locations as an AST node, and
              the kernel type includes primitive floats.
+ * [sercomp] Support for output of kernel traces `--mode=trace` (@ejgallego @palmskog)
+ * [serload] Support for loading of kernel traces (@ejgallego @palmskog)
 
 ## Version 0.7.0:
 

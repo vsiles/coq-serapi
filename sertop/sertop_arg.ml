@@ -130,7 +130,8 @@ let exn_on_opaque : bool Term.t =
   Arg.(value & flag & info ["exn_on_opaque"] ~doc)
 
 (* sertop options *)
-type comp_mode = | C_parse | C_stats | C_print | C_sexp | C_check | C_vo | C_env
+type comp_mode =
+  | C_parse | C_stats | C_print | C_sexp | C_check | C_vo | C_env | C_ktrace
 
 let comp_mode_args =
   Arg.(enum
@@ -141,6 +142,7 @@ let comp_mode_args =
          ; "check", C_check
          ; "vo",    C_vo
          ; "kenv",  C_env
+         ; "trace", C_ktrace
          ])
 
 let comp_mode_doc = Arg.doc_alts
@@ -161,7 +163,8 @@ type comp_input = | I_vernac | I_sexp
 let comp_input_args =
   Arg.(enum
          [ "vernac", I_vernac
-         ; "sexp", I_sexp])
+         ; "sexp",   I_sexp
+         ])
 
 let comp_input_doc = Arg.doc_alts
   [ "vernac: Coq vernacular"
