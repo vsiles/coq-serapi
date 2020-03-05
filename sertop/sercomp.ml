@@ -106,8 +106,105 @@ let input_doc ~input ~in_file ~in_chan ~process ~doc ~sid =
        with End_of_file -> !stt
      end
 
+(* Duplicated from serapi_protocol *)
+let context_of_st m = match m with
+  | `Valid (Some { Vernacstate.lemmas = Some lemma; _ } ) ->
+    Vernacstate.LemmaStack.with_top_pstate lemma
+      ~f:(fun p -> Pfedit.get_current_context p)
+  | _ ->
+    let env = Global.env () in Evd.from_env env, env
+
+let strip_constr_pattern_expr f e = f e
+
+let strip_union fa fb = function
+  | Util.Inl a -> Util.Inl (fa a)
+  | Util.Inr b -> Util.Inr (fb b)
+
+let strip_glob_red_flag f flag =
+  Genredexpr.{ flag with rConst = List.map f flag.rConst }
+
+let strip_red_expr_gen fa fb fc expr =
+  let open Genredexpr in
+  match expr with
+  | Red b -> Red b
+  | Hnf -> Hnf
+  | Simpl (flag, occ) ->
+    let flag = strip_glob_red_flag fb flag in
+    let occ = Option.map (fun (occ_expr, union) ->
+        (occ_expr, strip_union fb fc union)) occ in
+    Simpl (flag, occ)
+  | Cbv flag -> Cbv (strip_glob_red_flag fb flag)
+  | Cbn flag -> Cbn (strip_glob_red_flag fb flag)
+  | Lazy flag -> Lazy (strip_glob_red_flag fb flag)
+  | Unfold l ->
+    Unfold (List.map (fun (occ_expr, b) -> occ_expr, fb b) l)
+  | Fold l -> Fold (List.map fa l)
+  | Pattern l ->
+    Pattern (List.map (fun (occ_expr, a) -> occ_expr, fa a) l)
+  | ExtraRedExpr s -> ExtraRedExpr s
+  | CbvVm o ->
+    let o = Option.map (fun (occ_expr, union) ->
+        (occ_expr, strip_union fb fc union)) o
+    in CbvVm o
+  | CbvNative o ->
+    let o = Option.map (fun (occ_expr, union) ->
+        (occ_expr, strip_union fb fc union)) o
+    in CbvNative o
+
+let strip_raw_red_expr f =
+  strip_red_expr_gen f (fun x -> x) (strip_constr_pattern_expr f)
+
+let strip_definition_expr f = function
+  | Vernacexpr.ProveBody (l, cexpr) -> Vernacexpr.ProveBody (l, f cexpr)
+  | Vernacexpr.DefineBody (l, o, cexpr, ocexpr) ->
+    let o = Option.map (strip_raw_red_expr f) o in
+    Vernacexpr.DefineBody (l, o, f cexpr, Option.map f ocexpr)
+
+(*
+val extern_constr : ?lax:bool -> ?inctx:bool -> ?scope:scope_name ->
+  env -> Evd.evar_map -> constr -> constr_expr
+
+?lax:bool ->
+bool -> Environ.env -> Evd.evar_map -> Evd.econstr -> Constrexpr.constr_expr
+
+val interp_constr : ?expected_type:typing_constraint -> env -> evar_map -> ?impls:internalization_env ->
+  constr_expr -> constr Evd.in_evar_universe_context
+   *)
+
+let f env evar_map cexpr =
+  let ci = Constrintern.interp_constr env evar_map cexpr in
+  (* TODO: true ? false ? *)
+  Constrextern.extern_constr true env evar_map (fst ci)
+
+let strip_ast ~doc ~sid (ast: Vernacexpr.vernac_control) =
+  let st = Stm.state_of_id ~doc sid in
+  let sigma, env = context_of_st st in
+  let strip ast =
+    match ast with
+    | Vernacexpr.VernacDefinition (kind, name_decl, def_expr) ->
+      let f = f env sigma in
+      let def_expr = strip_definition_expr f def_expr in
+      Vernacexpr.VernacDefinition (kind, name_decl, def_expr)
+    | Vernacexpr.VernacNotation _ -> ast
+    | Vernacexpr.VernacInductive _ -> ast
+    | _ -> failwith "strip_ast not supported"
+  in
+  let strip ast =
+    Vernacexpr.{ ast with expr = Constrextern.without_symbols strip ast.expr } in
+  CAst.map strip ast
+
 let process_vernac ~mode ~pp ~doc ~sid ast =
   let open Format in
+  (* let () = *)
+  (*       printf "Before:\n"; *)
+  (*       printf "@[%a@]@\n%!" Pp.pp_with Ppvernac.(pr_vernac ast) *)
+  (* in *)
+  let new_ast = strip_ast ~doc ~sid ast in
+  (* let () = *)
+  (*       printf "After:\n"; *)
+  (*       printf "@[%a@]@\n%!" Pp.pp_with Ppvernac.(pr_vernac new_ast) *)
+  (* in *)
+  let ast = new_ast in
   let doc, n_st, tip = Stm.add ~doc ~ontop:sid false ast in
   if tip <> `NewTip then
     CErrors.user_err ?loc:ast.loc Pp.(str "fatal, got no `NewTip`");
