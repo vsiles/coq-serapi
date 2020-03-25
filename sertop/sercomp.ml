@@ -108,16 +108,7 @@ let input_doc ~input ~in_file ~in_chan ~process ~doc ~sid =
 
 let process_vernac ~mode ~pp ~doc ~sid ast =
   let open Format in
-  (* let () = *)
-  (*       printf "Before:\n"; *)
-  (*       printf "@[%a@]@\n%!" Pp.pp_with Ppvernac.(pr_vernac ast) *)
-  (* in *)
-  let new_ast = Serlib.Ser_remove_notations.remove_notation_ast ~doc ~sid ast in
-  (* let () = *)
-  (*       printf "After:\n"; *)
-  (*       printf "@[%a@]@\n%!" Pp.pp_with Ppvernac.(pr_vernac new_ast) *)
-  (* in *)
-  let ast = new_ast in
+  let ast = Serlib.Ser_remove_notations.remove_notation_ast ~doc ~sid ast in
   let doc, n_st, tip = Stm.add ~doc ~ontop:sid false ast in
   if tip <> `NewTip then
     CErrors.user_err ?loc:ast.loc Pp.(str "fatal, got no `NewTip`");
