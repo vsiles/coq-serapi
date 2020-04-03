@@ -263,10 +263,108 @@ let remove_notation env evar_map cexpr =
   let ci = Constrintern.interp_constr env evar_map cexpr in
   Constrextern.extern_constr true env evar_map (fst ci)
 
-let remove_notation_ast ~doc ~sid (ast: Vernacexpr.vernac_control) =
+let show_vernac_expr v =
   let open Vernacexpr in
-  let st = Stm.state_of_id ~doc sid in
-  let sigma, env = context_of_st st in
+  match v with
+  | VernacLoad _ -> "VernacLoad"
+  | VernacSyntaxExtension _ -> "VernacSyntaxExtension"
+  | VernacOpenCloseScope _ -> "VernacOpenCloseScope"
+  | VernacDeclareScope _ -> "VernacDeclareScope"
+  | VernacDelimiters _ -> "VernacDelimiters"
+  | VernacBindScope _ -> "VernacBindScope"
+  | VernacInfix _ -> "VernacInfix"
+  | VernacNotation _ -> "VernacNotation"
+  | VernacNotationAddFormat _ -> "VernacNotationAddFormat"
+  | VernacDeclareCustomEntry _ -> "VernacDeclareCustomEntry"
+  | VernacDefinition _ -> "VernacDefinition"
+  | VernacStartTheoremProof _ -> "VernacStartTheoremProof"
+  | VernacEndProof _ -> "VernacEndProof"
+  | VernacExactProof _ -> "VernacExactProof"
+  | VernacAssumption _ -> "VernacAssumption"
+  | VernacInductive _ -> "VernacInductive"
+  | VernacFixpoint _ -> "VernacFixpoint"
+  | VernacCoFixpoint _ -> "VernacCoFixpoint"
+  | VernacScheme _ -> "VernacScheme"
+  | VernacCombinedScheme _ -> "VernacCombinedScheme"
+  | VernacUniverse _ -> "VernacUniverse"
+  | VernacConstraint _ -> "VernacConstraint"
+  | VernacBeginSection _ -> "VernacBeginSection"
+  | VernacEndSegment _ -> "VernacEndSegment"
+  | VernacRequire _ -> "VernacRequire"
+  | VernacImport _ -> "VernacImport"
+  | VernacCanonical _ -> "VernacCanonical"
+  | VernacCoercion _ -> "VernacCoercion"
+  | VernacIdentityCoercion _ -> "VernacIdentityCoercion"
+  | VernacNameSectionHypSet _ -> "VernacNameSectionHypSet"
+  | VernacInstance _ -> "VernacInstance"
+  | VernacDeclareInstance _ -> "VernacDeclareInstance"
+  | VernacContext _ -> "VernacContext"
+  | VernacExistingInstance _ -> "VernacExistingInstance"
+  | VernacExistingClass _ -> "VernacExistingClass"
+  | VernacDeclareModule _ -> "VernacDeclareModule"
+  | VernacDefineModule _ -> "VernacDefineModule"
+  | VernacDeclareModuleType _ -> "VernacDeclareModuleType"
+  | VernacInclude _ -> "VernacInclude"
+  | VernacSolveExistential _ -> "VernacSolveExistential"
+  | VernacAddLoadPath _ -> "VernacAddLoadPath"
+  | VernacRemoveLoadPath _ -> "VernacRemoveLoadPath"
+  | VernacAddMLPath _ -> "VernacAddMLPath"
+  | VernacDeclareMLModule _ -> "VernacDeclareMLModule"
+  | VernacChdir _ -> "VernacChdir"
+  | VernacWriteState _ -> "VernacWriteState"
+  | VernacRestoreState _ -> "VernacRestoreState"
+  | VernacResetName _ -> "VernacResetName"
+  | VernacResetInitial -> "VernacResetInitial"
+  | VernacBack _ -> "VernacBack"
+  | VernacCreateHintDb _ -> "VernacCreateHintDb"
+  | VernacRemoveHints _ -> "VernacRemoveHints"
+  | VernacHints _ -> "VernacHints"
+  | VernacSyntacticDefinition _ -> "VernacSyntacticDefinition"
+  | VernacArguments _ -> "VernacArguments"
+  | VernacReserve _ -> "VernacReserve"
+  | VernacGeneralizable _ -> "VernacGeneralizable"
+  | VernacSetOpacity _ -> "VernacSetOpacity"
+  | VernacSetStrategy _ -> "VernacSetStrategy"
+  | VernacSetOption _ -> "VernacSetOption"
+  | VernacAddOption _ -> "VernacAddOption"
+  | VernacRemoveOption _ -> "VernacRemoveOption"
+  | VernacMemOption _ -> "VernacMemOption"
+  | VernacPrintOption _ -> "VernacPrintOption"
+  | VernacCheckMayEval _ -> "VernacCheckMayEval"
+  | VernacGlobalCheck _ -> "VernacGlobalCheck"
+  | VernacDeclareReduction _ -> "VernacDeclareReduction"
+  | VernacPrint _ -> "VernacPrint"
+  | VernacSearch _ -> "VernacSearch"
+  | VernacLocate _ -> "VernacLocate"
+  | VernacRegister _ -> "VernacRegister"
+  | VernacPrimitive _ -> "VernacPrimitive"
+  | VernacComments _ -> "VernacComments"
+  | VernacAbort _ -> "VernacAbort"
+  | VernacAbortAll -> "VernacAbortAll"
+  | VernacRestart -> "VernacRestart"
+  | VernacUndo _ -> "VernacUndo"
+  | VernacUndoTo _ -> "VernacUndoTo"
+  | VernacFocus _ -> "VernacFocus"
+  | VernacUnfocus -> "VernacUnfocus"
+  | VernacUnfocused -> "VernacUnfocused"
+  | VernacBullet _ -> "VernacBullet"
+  | VernacSubproof _ -> "VernacSubproof"
+  | VernacEndSubproof -> "VernacEndSubproof"
+  | VernacShow _ -> "VernacShow"
+  | VernacCheckGuard -> "VernacCheckGuard"
+  | VernacProof _ -> "VernacProof"
+  | VernacProofMode _ -> "VernacProofMode"
+  | VernacExtend _ -> "VernacExtend"
+
+let remove_notation_ast (sigma: Evd.evar_map) (env: Environ.env)
+    (ast: Vernacexpr.vernac_control) =
+  let _ = show_vernac_expr in
+  (* let () = *)
+  (*   Printf.eprintf "YOLO removing notations\n"; *)
+  (*   Printf.eprintf "%s\n" (show_vernac_expr ast.v.expr); *)
+  (*   flush stderr *)
+  (* in *)
+  let open Vernacexpr in
   let f = remove_notation env sigma in
   let strip ast =
     match ast with

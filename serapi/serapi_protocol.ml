@@ -707,6 +707,11 @@ module ControlUtil = struct
           | Some ast -> ast
           | None -> raise End_of_input
         in
+        let east =
+          let st = Stm.state_of_id ~doc:!doc !stt in
+          let sigma, env = context_of_st st in
+          Serapi_remove_notations.remove_notation_ast sigma env east
+        in
         (* XXX: Must like refine the API *)
         let eloc      = Option.get (east.CAst.loc) in
         let n_doc, n_st, foc = Stm.add ~doc:!doc ?newtip:opts.newtip ~ontop:!stt opts.verb east in

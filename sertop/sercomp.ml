@@ -106,9 +106,22 @@ let input_doc ~input ~in_file ~in_chan ~process ~doc ~sid =
        with End_of_file -> !stt
      end
 
+(* CC from serapi_protocol *)
+let context_of_st m = match m with
+  | `Valid (Some { Vernacstate.lemmas = Some lemma; _ } ) ->
+    Vernacstate.LemmaStack.with_top_pstate lemma
+      ~f:(fun p -> Pfedit.get_current_context p)
+    (* let pstate = st.Vernacstate.proof in *)
+    (* let summary = States.summary_of_state st.Vernacstate.system in
+     * Safe_typing.env_of_safe_env Summary.(project_from_summary summary Global.global_env_summary_tag) *)
+  | _ ->
+    let env = Global.env () in Evd.from_env env, env
+
 let process_vernac ~mode ~pp ~doc ~sid ast =
   let open Format in
-  let ast = Serlib.Ser_remove_notations.remove_notation_ast ~doc ~sid ast in
+  let st = Stm.state_of_id ~doc sid in
+  let sigma, env = context_of_st st in
+  let ast = Serapi.Serapi_remove_notations.remove_notation_ast sigma env ast in
   let doc, n_st, tip = Stm.add ~doc ~ontop:sid false ast in
   if tip <> `NewTip then
     CErrors.user_err ?loc:ast.loc Pp.(str "fatal, got no `NewTip`");
